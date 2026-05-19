@@ -1,62 +1,55 @@
 const http = require('http');
 const fs = require('fs');
 
+const database = process.argv[2];
+
 function countStudents(path) {
   return new Promise((resolve, reject) => {
-    fs.readFile(path, 'utf8', (error, data) => {
-      if (error) {
+    fs.readFile(path, 'utf8', (err, data) => {
+      if (err) {
         reject(new Error('Cannot load the database'));
         return;
       }
 
-      const lines = data.split('\n').filter((line) => line !== '');
-
+      const lines = data.split('\n').filter((line) => line.trim() !== '');
       const students = lines.slice(1);
 
-      let result = `Number of students: ${students.length}\n`;
+      const output = [];
+      output.push(`Number of students: ${students.length}`);
 
       const fields = {};
-
-      students.forEach((student) => {
-        const parts = student.split(',');
-
-        const firstname = parts[0];
-        const field = parts[3];
-
+      for (const student of students) {
+        const [firstname, , , field] = student.split(',');
         if (!fields[field]) {
           fields[field] = [];
         }
-
         fields[field].push(firstname);
-      });
-
-      for (const field in fields) {
-        result += `Number of students in ${field}: ${fields[field].length}. List: ${fields[field].join(', ')}\n`;
       }
 
-      resolve(result.trim());
+      for (const [field, names] of Object.entries(fields)) {
+        output.push(`Number of students in ${field}: ${names.length}. List: ${names.join(', ')}`);
+      }
+
+      resolve(output.join('\n'));
     });
   });
 }
 
 const app = http.createServer((req, res) => {
+  res.writeHead(200, { 'Content-Type': 'text/plain' });
+
   if (req.url === '/') {
-    res.statusCode = 200;
-    res.setHeader('Content-Type', 'text/plain');
     res.end('Hello Holberton School!');
   } else if (req.url === '/students') {
-    const database = process.argv[2];
-
-    res.statusCode = 200;
-    res.setHeader('Content-Type', 'text/plain');
-
     countStudents(database)
       .then((data) => {
         res.end(`This is the list of our students\n${data}`);
       })
-      .catch(() => {
-        res.end('This is the list of our students\nCannot load the database');
+      .catch((err) => {
+        res.end(`This is the list of our students\n${err.message}`);
       });
+  } else {
+    res.end('Hello Holberton School!');
   }
 });
 
